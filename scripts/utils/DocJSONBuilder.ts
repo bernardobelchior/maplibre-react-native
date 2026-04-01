@@ -2,6 +2,7 @@ import { exec } from "child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import * as docgen from "react-docgen";
+import { builtinImporters } from "react-docgen";
 import { parseJsDoc } from "react-docgen/dist/utils";
 
 import { JSDocNodeTree } from "./JSDocNodeTree";
@@ -19,6 +20,7 @@ const IGNORE_COMPONENTS = [
   "UserLocationPuckHeading",
 ];
 const IGNORE_METHODS = ["setNativeProps"];
+const IGNORE_PROPS = ["testID"];
 
 const fileExtensionsRegex = /.(js|tsx|(?<!d.)ts)$/;
 
@@ -264,6 +266,7 @@ export class DocJSONBuilder {
             : propMeta.defaultValue.value.replace(/\n/g, ""),
           description: propMeta.description || "FIX ME NO DESCRIPTION",
         };
+
         if (
           result.type &&
           result.type.name === "func" &&
@@ -328,11 +331,13 @@ export class DocJSONBuilder {
     }
 
     // props
-    component.props = Object.keys(component.props).map((propName) => {
-      const propMeta = component.props[propName];
+    component.props = Object.keys(component.props)
+      .filter((propName) => !IGNORE_PROPS.includes(propName))
+      .map((propName) => {
+        const propMeta = component.props[propName];
 
-      return mapProp(propMeta, propName, false);
-    });
+        return mapProp(propMeta, propName, false);
+      });
 
     // methods
     const privateMethods: string[] = [];
@@ -394,8 +399,9 @@ export class DocJSONBuilder {
     files.forEach(({ base, content }) => {
       const parsedComponents = docgen.parse(content, {
         babelOptions: {
-          filename: base,
+          filename: path.join(COMPONENT_DIRECTORY, base),
         },
+        importer: builtinImporters.fsImporter,
       });
 
       const [parsed] = parsedComponents;
